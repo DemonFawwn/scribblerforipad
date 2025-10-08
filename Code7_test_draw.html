@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ScribblerToo – Apple Pencil + Touch</title>
+  <style>
+    :root { color-scheme: light; }
+    html, body { margin:0; padding:0; background:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    header { display:flex; gap:10px; align-items:center; padding:10px; border-bottom:1px solid #ddd; position:sticky; top:0; background:#fff; z-index:1; }
+    header > * { padding:6px 8px; border-radius:8px; border:1px solid #ddd; background:#fafafa; }
+    label { border:none; padding:0; margin-right:6px; background:transparent; }
+    #wrap { padding:10px; }
+    #myCanvas { display:block; width: min(95vw, 95vh); height: auto; border:1px solid #ddd; border-radius: 10px; touch-action: none; background:#fff; }
+    .hint { font-size:12px; opacity:.7; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span>Apple Pencil + Touch</span>
+    <label for="color">Color</label><input type="color" id="color" value="#111111">
+    <label for="width">Base width</label><input type="range" id="width" min="1" max="40" value="8">
+    <label for="alpha">Opacity</label><input type="range" id="alpha" min="0.05" max="1" step="0.01" value="1">
+    <button id="clear">Clear</button>
+    <button id="save">Save PNG</button>
+  </header>
+  <div id="wrap">
+    <canvas id="myCanvas" width="1500" height="1500"></canvas>
+    <div class="hint">Draw with Apple Pencil, finger, or mouse. Lines within 100px of your current endpoint will connect to a random point of earlier strokes (colored to match your brush).</div>
+  </div>
+
+  <script>
+  (()=>{
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorEl = document.getElementById('color');
+    const widthEl = document.getElementById('width');
+    const alphaEl = document.getElementById('alpha');
+    const clearEl = document.getElementById('clear');
+    const saveEl = document.getElementById('save');
+
+    // Fill white background so PNG export is white (not transparent)
+    function fillWhite() {
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+    }
+    fillWhite();
+
+    // History of paths: {color, baseWidth, alpha, points:[{x,y,p}], bbox:{minx,miny,maxx,maxy}}
+    let paths = [];
+    let drawing = false;
+    let current = null;
+
+    function begin(x,y,p=1){
+      drawing = true;
+      current = {
+        color: colorEl.value,
+        baseWidth: parseFloat(widthEl.value),
+        alpha: parseFloat(alphaEl.value),
+        points: [{x,y,p}],
+        bbox: {minx:x, miny:y, maxx:x, maxy:y}
+      };
+    }
+    function extend(x,y,p=1){
+      if(!drawing || !current) return;
+      const last = current.points[current.points.length-1];
+      const pt = {x,y,p};
+      current.points.push(pt);
+      const b = current.bbox;
+      if (x<b.minx) b.minx=x; if (y<b.miny) b.miny=y; if (x>b.maxx) b.maxx=x; if (y>b.maxy) b.maxy=y;
+
+      const w = Math.max(0.5, current.baseWidth * (p||1));
+      ctx.save();
+      ctx.globalAlpha = current.alpha;
+      ctx.strokeStyle = current.color;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke();
+      ctx.restore();
+
+      // Connect to nearby earlier paths with 1px line in current color
+      connectNearby({x, y}, current.color);
+    }
+    function end(){
+      if(!drawing || !current) return;
+      if(current.points.length>1) paths.push(current);
+      current = null; drawing=false;
+    }
+
+    function dist2(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; }
+
+    function connectNearby(lastPt, color){
+      const R=100, R2=R*R;
+      for(const path of paths){
+        const b = path.bbox;
+        if (lastPt.x < b.minx - R || lastPt.x > b.maxx + R || lastPt.y < b.miny - R || lastPt.y > b.maxy + R) continue;
+        // Does any point fall within radius?
+        let qualifies=false;
+        for(const q of path.points){ if(dist2(lastPt,q)<=R2){ qualifies=true; break; } }
+        if (qualifies){
+          const rnd = path.points[(Math.random()*path.points.length)|0];
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(lastPt.x,lastPt.y);
+          ctx.lineTo(rnd.x,rnd.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    function redrawAll(){
+      fillWhite();
+      for(const s of paths){
+        if(!s.points || s.points.length<2) continue;
+        ctx.save();
+        ctx.globalAlpha = s.alpha;
+        ctx.strokeStyle = s.color;
+        ctx.lineCap='round'; ctx.lineJoin='round';
+        for(let i=1;i<s.points.length;i++){
+          const a = s.points[i-1], b = s.points[i];
+          const w = Math.max(0.5, s.baseWidth * (b.p||1));
+          ctx.lineWidth = w;
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    // Pointer Events + pressure
+    function xy(evt){
+      const rect = canvas.getBoundingClientRect();
+      return { x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+               y: (evt.clientY - rect.top)  * (canvas.height / rect.height) };
+    }
+    function pressure(evt){
+      let p = 1;
+      if (typeof evt.pressure === 'number' && evt.pressure > 0) p = evt.pressure;
+      if (evt.pointerType === 'mouse' && (!evt.pressure || evt.pressure === 0)) p = 1;
+      return Math.max(0.15, Math.min(1, p));
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      const {x,y} = xy(e);
+      begin(x,y,pressure(e));
+    }, {passive:false});
+
+    canvas.addEventListener('pointermove', e => {
+      if(!drawing) return;
+      e.preventDefault();
+      const {x,y} = xy(e);
+      extend(x,y,pressure(e));
+    }, {passive:false});
+
+    function finish(e){ end(); try{ canvas.releasePointerCapture(e.pointerId); }catch{} }
+    canvas.addEventListener('pointerup', e => { e.preventDefault(); finish(e); }, {passive:false});
+    canvas.addEventListener('pointercancel', e => { e.preventDefault(); finish(e); }, {passive:false});
+
+    // Prevent scrolling on iPad while drawing
+    document.body.addEventListener('touchmove', (e) => { if (e.target === canvas) e.preventDefault(); }, {passive:false});
+
+    // Clear & Save
+    clearEl.onclick = () => { paths=[]; current=null; drawing=false; fillWhite(); };
+    saveEl.onclick = () => {
+      const a = document.createElement('a');
+      a.download = 'scribblertoo.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    };
+  })();
+  </script>
+</body>
+</html>
