@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Scribbler 柔网·终极版（Apple Pencil）</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="top">
+    <span>柔网·Scribbler</span>
+    <label for="color">颜色</label><input type="color" id="color" value="#111111">
+    <label for="w">基准粗细</label><input type="range" id="w" min="0.2" max="4" step="0.05" value="1.6">
+    <label for="a">不透明</label><input type="range" id="a" min="0.05" max="1" step="0.01" value="0.85">
+    <button id="clear">清空</button>
+    <button id="save">保存PNG</button>
+  </div>
+  <div class="wrap">
+    <canvas id="canvas" width="1500" height="1500"></canvas>
+  </div>
+  <div class="hint">柔网风格：超细丝线 + 高密度连结；半径约50px，不连远处。Apple Pencil 压力生效，PNG白底。</div>
+
+  <script src="app.js"></script>
+  <script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js'))}</script>
+</body>
+</html>
