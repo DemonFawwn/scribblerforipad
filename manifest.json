@@ -1,8 +1,0 @@
-{
-  "name": "Scribbler Soft-Web v3",
-  "short_name": "Scribbler",
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff"
-}
