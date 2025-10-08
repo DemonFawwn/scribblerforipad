@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Scribbler 柔网·竖版 + 撤回 (v5)</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <style>.chip{position:fixed;right:10px;top:10px;background:#111;color:#fff;padding:4px 8px;border-radius:999px;font-size:12px;opacity:.85;z-index:99}</style>
+</head>
+<body>
+  <div class="chip">v5 • pen-only + range slider</div>
+  <div class="top">
+    <span>柔网·Scribbler</span>
+    <label for="color">颜色</label><input type="color" id="color" value="#111111">
+    <label for="w">基准粗细</label><input type="range" id="w" min="0.2" max="4" step="0.05" value="1.6">
+    <label for="a">不透明</label><input type="range" id="a" min="0.05" max="1" step="0.01" value="0.85">
+    <label for="radius">连线范围</label><input type="range" id="radius" min="20" max="150" step="1" value="50">
+    <span id="radiusVal" class="pill">50px</span>
+    <button id="undo">撤回</button>
+    <button id="redo">重做</button>
+    <button id="clear">清空</button>
+    <button id="save">保存PNG</button>
+  </div>
+  <div class="wrap">
+    <canvas id="canvas" width="1500" height="2400"></canvas>
+  </div>
+  <div class="hint">v5：去除缩放/拖动；新增「连线范围」滑块（20–150px，默认50）。只允许 Apple Pencil 绘制；PNG 白底。</div>
+
+  <script src="app.v5.js"></script>
+  <script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js?v=5'))}</script>
+</body>
+</html>
